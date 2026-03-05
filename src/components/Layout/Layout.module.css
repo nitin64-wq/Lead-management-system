@@ -1,0 +1,30 @@
+.layout {
+    display: flex;
+    min-height: 100vh;
+    background: #f1f5f9;
+}
+
+.mainArea {
+    flex: 1;
+    margin-left: 260px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    transition: margin-left 0.3s ease;
+}
+
+.content {
+    flex: 1;
+    padding: 24px 28px;
+    overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+    .mainArea {
+        margin-left: 0;
+    }
+
+    .content {
+        padding: 16px;
+    }
+}

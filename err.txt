@@ -1,0 +1,24 @@
+﻿node.exe : npm error could 
+not determine executable to 
+run
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" "C:\Us
+ers\nitin\AppData\Roaming\ 
+...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (npm err  
+  or could...ecutable to r   
+ un:String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+npm error A complete log of 
+this run can be found in: C:\
+Users\nitin\AppData\Local\npm
+-cache\_logs\2026-03-05T06_12
+_58_725Z-debug-0.log
