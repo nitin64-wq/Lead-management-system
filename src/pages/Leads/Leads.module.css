@@ -38,6 +38,24 @@
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
+.clearFiltersBtn {
+    padding: 8px 14px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    color: #64748b;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.clearFiltersBtn:hover {
+    color: #334155;
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
 .addBtn {
     padding: 10px 20px;
     border-radius: 10px;
