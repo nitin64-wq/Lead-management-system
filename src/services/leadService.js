@@ -1,102 +1,77 @@
-import { mockLeads, mockUsers } from '../utils/mockData';
 import { LEAD_STATUS } from '../utils/constants';
 
-const LEADS_KEY = 'lms_leads';
-const USERS_KEY = 'lms_users';
+const API_LEADS_URL = 'http://localhost:5000/api/leads';
+const API_USERS_URL = 'http://localhost:5000/api/users';
 
-function getStoredLeads() {
-    const stored = localStorage.getItem(LEADS_KEY);
-    if (stored) {
-        try { return JSON.parse(stored); } catch { /* ignore */ }
-    }
-    localStorage.setItem(LEADS_KEY, JSON.stringify(mockLeads));
-    return [...mockLeads];
-}
-
-function saveLeads(leads) {
-    localStorage.setItem(LEADS_KEY, JSON.stringify(leads));
-}
-
-function getStoredUsers() {
-    const stored = localStorage.getItem(USERS_KEY);
-    if (stored) {
-        try { return JSON.parse(stored); } catch { /* ignore */ }
-    }
-    localStorage.setItem(USERS_KEY, JSON.stringify(mockUsers));
-    return [...mockUsers];
-}
-
-function saveUsers(users) {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
+const mapId = (obj) => ({ ...obj, id: obj._id });
 
 export const leadService = {
     // ===== Lead Operations =====
-    getAllLeads() {
-        return getStoredLeads();
+    async getAllLeads() {
+        const res = await fetch(API_LEADS_URL);
+        const data = await res.json();
+        return data.data ? data.data.map(mapId) : [];
     },
 
-    getLeadsByUser(userId) {
-        return getStoredLeads().filter((l) => l.assignedTo === userId);
+    async getLeadsByUser(userId) {
+        const leads = await this.getAllLeads();
+        return leads.filter((l) => l.assignedTo === userId);
     },
 
-    getLeadById(leadId) {
-        return getStoredLeads().find((l) => l.id === leadId) || null;
+    async getLeadById(leadId) {
+        const res = await fetch(`${API_LEADS_URL}/${leadId}`);
+        const data = await res.json();
+        return data.data ? mapId(data.data) : null;
     },
 
-    createLead(leadData) {
-        const leads = getStoredLeads();
-        const newLead = {
-            id: `lead_${String(Date.now()).slice(-6)}`,
+    async createLead(leadData) {
+        const payload = {
             ...leadData,
-            status: LEAD_STATUS.NEW,
-            assignedTo: leadData.assignedTo || null,
+            status: leadData.assignedTo ? LEAD_STATUS.ASSIGNED : LEAD_STATUS.NEW,
             remarks: [],
             followUpDate: null,
-            createdAt: new Date().toISOString().split('T')[0],
         };
-        if (newLead.assignedTo) {
-            newLead.status = LEAD_STATUS.ASSIGNED;
-        }
-        leads.unshift(newLead);
-        saveLeads(leads);
-        return newLead;
+        const res = await fetch(API_LEADS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        return data.data ? mapId(data.data) : null;
     },
 
-    updateLead(leadId, updates) {
-        const leads = getStoredLeads();
-        const idx = leads.findIndex((l) => l.id === leadId);
-        if (idx === -1) return null;
-        leads[idx] = { ...leads[idx], ...updates };
-        saveLeads(leads);
-        return leads[idx];
+    async updateLead(leadId, updates) {
+        const res = await fetch(`${API_LEADS_URL}/${leadId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
+        const data = await res.json();
+        return data.data ? mapId(data.data) : null;
     },
 
-    deleteLead(leadId) {
-        let leads = getStoredLeads();
-        leads = leads.filter((l) => l.id !== leadId);
-        saveLeads(leads);
+    async deleteLead(leadId) {
+        await fetch(`${API_LEADS_URL}/${leadId}`, { method: 'DELETE' });
         return true;
     },
 
-    assignLead(leadId, userId) {
+    async assignLead(leadId, userId) {
         return this.updateLead(leadId, {
             assignedTo: userId,
             status: LEAD_STATUS.ASSIGNED,
         });
     },
 
-    addRemark(leadId, remarkData) {
-        const leads = getStoredLeads();
-        const idx = leads.findIndex((l) => l.id === leadId);
-        if (idx === -1) return null;
+    async addRemark(leadId, remarkData) {
+        const lead = await this.getLeadById(leadId);
+        if (!lead) return null;
 
         const remark = {
             date: new Date().toISOString().split('T')[0],
             ...remarkData,
         };
 
-        leads[idx].remarks.push(remark);
+        const updates = { remarks: [...(lead.remarks || []), remark] };
 
         // Update status based on response
         const responseStatusMap = {
@@ -110,40 +85,36 @@ export const leadService = {
         };
 
         if (responseStatusMap[remarkData.response]) {
-            leads[idx].status = responseStatusMap[remarkData.response];
+            updates.status = responseStatusMap[remarkData.response];
         }
 
         if (remarkData.nextFollowUp) {
-            leads[idx].followUpDate = remarkData.nextFollowUp;
+            updates.followUpDate = remarkData.nextFollowUp;
             if (remarkData.response !== 'Not Interested') {
-                leads[idx].status = LEAD_STATUS.FOLLOW_UP;
+                updates.status = LEAD_STATUS.FOLLOW_UP;
             }
         }
 
-        saveLeads(leads);
-        return leads[idx];
+        return this.updateLead(leadId, updates);
     },
 
-    convertLead(leadId) {
+    async convertLead(leadId) {
         return this.updateLead(leadId, { status: LEAD_STATUS.CONVERTED });
     },
 
-    closeLead(leadId) {
+    async closeLead(leadId) {
         return this.updateLead(leadId, { status: LEAD_STATUS.CLOSED });
     },
 
-    getFollowUpsForDate(date) {
-        return getStoredLeads().filter((l) => l.followUpDate === date);
-    },
-
-    getTodayFollowUps() {
+    async getTodayFollowUps() {
         const today = new Date().toISOString().split('T')[0];
-        return this.getFollowUpsForDate(today);
+        const leads = await this.getAllLeads();
+        return leads.filter((l) => l.followUpDate === today);
     },
 
     // ===== Statistics =====
-    getStats(userId = null) {
-        let leads = getStoredLeads();
+    async getStats(userId = null) {
+        let leads = await this.getAllLeads();
         if (userId) {
             leads = leads.filter((l) => l.assignedTo === userId);
         }
@@ -162,28 +133,29 @@ export const leadService = {
         };
     },
 
-    getSourceDistribution(userId = null) {
-        let leads = getStoredLeads();
+    async getSourceDistribution(userId = null) {
+        let leads = await this.getAllLeads();
         if (userId) leads = leads.filter((l) => l.assignedTo === userId);
         const dist = {};
         leads.forEach((l) => {
-            dist[l.source] = (dist[l.source] || 0) + 1;
+            dist[l.source || 'Website'] = (dist[l.source || 'Website'] || 0) + 1;
         });
         return Object.entries(dist).map(([name, value]) => ({ name, value }));
     },
 
-    getCourseDistribution(userId = null) {
-        let leads = getStoredLeads();
+    async getCourseDistribution(userId = null) {
+        let leads = await this.getAllLeads();
         if (userId) leads = leads.filter((l) => l.assignedTo === userId);
         const dist = {};
         leads.forEach((l) => {
-            dist[l.course] = (dist[l.course] || 0) + 1;
+            const course = l.course || 'Unknown';
+            dist[course] = (dist[course] || 0) + 1;
         });
         return Object.entries(dist).map(([name, value]) => ({ name, value }));
     },
 
-    getStatusDistribution(userId = null) {
-        let leads = getStoredLeads();
+    async getStatusDistribution(userId = null) {
+        let leads = await this.getAllLeads();
         if (userId) leads = leads.filter((l) => l.assignedTo === userId);
         const dist = {};
         leads.forEach((l) => {
@@ -193,55 +165,53 @@ export const leadService = {
     },
 
     // ===== User Operations =====
-    getAllUsers() {
-        return getStoredUsers().map(({ password, ...u }) => u);
+    async getAllUsers() {
+        const res = await fetch(API_USERS_URL);
+        const data = await res.json();
+        return data.data ? data.data.map(mapId).map(({ password, ...u }) => u) : [];
     },
 
-    getUserById(userId) {
-        const user = getStoredUsers().find((u) => u.id === userId);
-        if (!user) return null;
-        const { password, ...safeUser } = user;
-        return safeUser;
+    async getUserById(userId) {
+        const res = await fetch(`${API_USERS_URL}/${userId}`);
+        const data = await res.json();
+        if (!data.data) return null;
+        const u = mapId(data.data);
+        delete u.password;
+        return u;
     },
 
-    createUser(userData) {
-        const users = getStoredUsers();
-        const newUser = {
-            id: `usr_${String(Date.now()).slice(-6)}`,
-            ...userData,
-            password: userData.password || 'default123',
-            isActive: true,
-            createdAt: new Date().toISOString().split('T')[0],
-        };
-        users.push(newUser);
-        saveUsers(users);
-        const { password, ...safeUser } = newUser;
-        return safeUser;
+    async createUser(userData) {
+        const res = await fetch(API_USERS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+        });
+        const data = await res.json();
+        const u = data.data ? mapId(data.data) : null;
+        if (u) delete u.password;
+        return u;
     },
 
-    updateUser(userId, updates) {
-        const users = getStoredUsers();
-        const idx = users.findIndex((u) => u.id === userId);
-        if (idx === -1) return null;
-        users[idx] = { ...users[idx], ...updates };
-        saveUsers(users);
-        const { password, ...safeUser } = users[idx];
-        return safeUser;
+    async updateUser(userId, updates) {
+        const res = await fetch(`${API_USERS_URL}/${userId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
+        const data = await res.json();
+        const u = data.data ? mapId(data.data) : null;
+        if (u) delete u.password;
+        return u;
     },
 
-    deleteUser(userId) {
-        let users = getStoredUsers();
-        users = users.filter((u) => u.id !== userId);
-        saveUsers(users);
+    async deleteUser(userId) {
+        await fetch(`${API_USERS_URL}/${userId}`, { method: 'DELETE' });
         return true;
     },
 
-    toggleUserStatus(userId) {
-        const users = getStoredUsers();
-        const idx = users.findIndex((u) => u.id === userId);
-        if (idx === -1) return null;
-        users[idx].isActive = !users[idx].isActive;
-        saveUsers(users);
-        return users[idx];
+    async toggleUserStatus(userId) {
+        const user = await this.getUserById(userId);
+        if (!user) return null;
+        return this.updateUser(userId, { isActive: !user.isActive });
     },
 };

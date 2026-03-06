@@ -12,15 +12,41 @@ const COLORS = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'
 const Reports = () => {
     const { leads, users } = useLeads();
 
-    const sourceData = useMemo(() => leadService.getSourceDistribution(), [leads]);
-    const courseData = useMemo(() => leadService.getCourseDistribution(), [leads]);
-    const statusData = useMemo(() => leadService.getStatusDistribution(), [leads]);
+    const sourceData = useMemo(() => {
+        const dist = {};
+        leads.forEach((l) => {
+            const source = l.source || 'Website';
+            dist[source] = (dist[source] || 0) + 1;
+        });
+        return Object.entries(dist).map(([name, value]) => ({ name, value }));
+    }, [leads]);
 
-    const salesUsers = users.filter((u) => u.role === 'sales');
+    const courseData = useMemo(() => {
+        const dist = {};
+        leads.forEach((l) => {
+            const course = l.course || 'Unknown';
+            dist[course] = (dist[course] || 0) + 1;
+        });
+        return Object.entries(dist).map(([name, value]) => ({ name, value }));
+    }, [leads]);
+
+    const statusData = useMemo(() => {
+        const dist = {};
+        leads.forEach((l) => { dist[l.status] = (dist[l.status] || 0) + 1; });
+        return Object.entries(dist).map(([name, value]) => ({ name, value }));
+    }, [leads]);
+
+    const salesUsers = users.filter((u) => u.role === 'sales' || u.role === 'user');
 
     const userPerformance = useMemo(() => {
         return salesUsers.map((u) => {
-            const stats = leadService.getStats(u.id);
+            const userLeads = leads.filter(l => l.assignedTo === u.id);
+            const stats = {
+                total: userLeads.length,
+                converted: userLeads.filter(l => l.status === 'Converted').length,
+                interested: userLeads.filter(l => l.status === 'Interested').length,
+                followUp: userLeads.filter(l => l.status === 'Follow Up').length,
+            };
             return { ...u, stats };
         });
     }, [salesUsers, leads]);

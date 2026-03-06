@@ -1,18 +1,28 @@
-import { mockUsers } from '../utils/mockData';
-
+const API_URL = 'http://localhost:5000/api/auth';
 const STORAGE_KEY = 'lms_auth';
 
 export const authService = {
-    login(email, password) {
-        const user = mockUsers.find(
-            (u) => u.email === email && u.password === password && u.isActive
-        );
-        if (!user) {
-            return { success: false, error: 'Invalid credentials or account disabled' };
+    async login(email, password) {
+        try {
+            const response = await fetch(`${API_URL}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
+            const data = await response.json();
+
+            if (!data.success) {
+                return { success: false, error: data.message || 'Invalid credentials' };
+            }
+
+            const safeUser = { ...data.data, id: data.data._id };
+            delete safeUser.password;
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(safeUser));
+            return { success: true, user: safeUser };
+        } catch (error) {
+            return { success: false, error: 'Network error or server down' };
         }
-        const { password: _, ...safeUser } = user;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(safeUser));
-        return { success: true, user: safeUser };
     },
 
     logout() {

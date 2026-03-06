@@ -7,9 +7,9 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(() => authService.getCurrentUser());
     const [error, setError] = useState(null);
 
-    const login = useCallback((email, password) => {
+    const login = useCallback(async (email, password) => {
         setError(null);
-        const result = authService.login(email, password);
+        const result = await authService.login(email, password);
         if (result.success) {
             setUser(result.user);
             return true;
