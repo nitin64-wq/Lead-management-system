@@ -21,6 +21,7 @@ const Leads = () => {
 
     const [statusFilter, setStatusFilter] = useState('');
     const [sourceFilter, setSourceFilter] = useState('');
+    const [sortBy, setSortBy] = useState('newest');
     const [showAddForm, setShowAddForm] = useState(false);
     const [callLead, setCallLead] = useState(null);
     const [viewLead, setViewLead] = useState(null);
@@ -40,10 +41,27 @@ const Leads = () => {
         if (sourceFilter) filtered = filtered.filter((l) => l.source === sourceFilter);
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
+            filtered = filtered.filter((lead) => {
+                return [lead.name, lead.email, lead.phone, lead.course, lead.source]
+                    .filter(Boolean)
+                    .some((field) => String(field).toLowerCase().includes(q));
+            });
         }
 
+        filtered = [...filtered].sort((a, b) => {
+            const aTime = new Date(a.createdAt || 0).getTime();
+            const bTime = new Date(b.createdAt || 0).getTime();
+            return sortBy === 'oldest' ? aTime - bTime : bTime - aTime;
+        });
+
         return filtered;
-    }, [leads, isSales, user, statusFilter, sourceFilter, searchQuery]);
+    }, [leads, isSales, user, statusFilter, sourceFilter, searchQuery, sortBy]);
+
+    const clearFilters = () => {
+        setStatusFilter('');
+        setSourceFilter('');
+        setSortBy('newest');
+    };
 
     const handleAddLead = (e) => {
         e.preventDefault();
@@ -109,6 +127,23 @@ const Leads = () => {
                             <option key={s} value={s}>{s}</option>
                         ))}
                     </select>
+
+                    <select
+                        className={styles.filterSelect}
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                    >
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+
+                    <button
+                        type="button"
+                        className={styles.clearFiltersBtn}
+                        onClick={clearFilters}
+                    >
+                        Clear
+                    </button>
                 </div>
 
                 {isAdmin && (
